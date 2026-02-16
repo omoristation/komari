@@ -17,6 +17,7 @@ import (
 	"github.com/komari-monitor/komari/config"
 	"github.com/komari-monitor/komari/database/models"
 	logutil "github.com/komari-monitor/komari/utils/log"
+	"gorm.io/driver/mysql" //diy
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -426,19 +427,19 @@ func GetDBInstance() *gorm.DB {
 			}
 			instance.Exec("VACUUM;")
 			instance.Exec("PRAGMA wal_checkpoint(TRUNCATE);")
-		// case "mysql":
-		// 	// MySQL 连接
-		// 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Local",
-		// 		flags.DatabaseUser,
-		// 		flags.DatabasePass,
-		// 		flags.DatabaseHost,
-		// 		flags.DatabasePort,
-		// 		flags.DatabaseName)
-		// 	instance, err = gorm.Open(mysql.Open(dsn), logConfig)
-		// 	if err != nil {
-		// 		log.Fatalf("Failed to connect to MySQL database: %v", err)
-		// 	}
-		// 	log.Printf("Using MySQL database: %s@%s:%s/%s", flags.DatabaseUser, flags.DatabaseHost, flags.DatabasePort, flags.DatabaseName)
+		case "mysql":
+			// MySQL 连接
+			dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Local",
+				flags.DatabaseUser,
+				flags.DatabasePass,
+				flags.DatabaseHost,
+				flags.DatabasePort,
+				flags.DatabaseName)
+			instance, err = gorm.Open(mysql.Open(dsn), logConfig)
+			if err != nil {
+				log.Fatalf("Failed to connect to MySQL database: %v", err)
+			}
+			log.Printf("Using MySQL database: %s@%s:%s/%s", flags.DatabaseUser, flags.DatabaseHost, flags.DatabasePort, flags.DatabaseName)
 		default:
 			log.Fatalf("Unsupported database type: %s", flags.DatabaseType)
 		}
@@ -454,7 +455,7 @@ func GetDBInstance() *gorm.DB {
 			&models.Log{},
 			&models.Clipboard{},
 			&models.LoadNotification{},
-			&models.OfflineNotification{},
+			//&models.OfflineNotification{}, //diy 禁止自动迁移
 			&models.PingRecord{},
 			&models.PingTask{},
 			&models.OidcProvider{},
