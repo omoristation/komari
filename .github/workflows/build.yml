@@ -4,13 +4,18 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build-binaries:
+  build:
     runs-on: ubuntu-latest
 
     strategy:
@@ -93,6 +98,14 @@ jobs:
           sudo tar -C /usr/local -Jxf zig-x86_64-linux-0.14.1.tar.xz
           echo "PATH=$PATH:/usr/local/zig-x86_64-linux-0.14.1" >> $GITHUB_ENV
 
+      - name: Detect Version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_SHA}" >> $GITHUB_ENV
+          fi
       - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}
@@ -106,12 +119,28 @@ jobs:
           if [ "${{ matrix.binary_extension }}" != "" ]; then
             BINARY_NAME=${BINARY_NAME}${{ matrix.binary_extension }}
           fi
-          VERSION="${{ github.sha }}"
-          VERSION_HASH="${{ github.sha }}"
-          go build -trimpath -ldflags="-s -w -X github.com/komari-monitor/komari/utils.CurrentVersion=${VERSION} -X github.com/komari-monitor/komari/utils.VersionHash=${VERSION_HASH}" -o $BINARY_NAME
+
+          go build -trimpath \
+            -ldflags="-s -w -X github.com/omoristation/komari/utils.CurrentVersion=${VERSION} -X github.com/komari-monitor/komari/utils.VersionHash=${VERSION}" \
+            -o $BINARY_NAME
 
       - name: Upload binary as artifact
+        if: startsWith(github.ref, 'refs/heads/')
         uses: actions/upload-artifact@v4
         with:
           name: komari-${{ matrix.goos }}-${{ matrix.goarch }}
           path: komari-${{ matrix.goos }}-${{ matrix.goarch }}*
+
+      - name: Create Release (only once)
+        if: startsWith(github.ref, 'refs/tags/') && matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          files: komari-${{ matrix.goos }}-${{ matrix.goarch }}*
